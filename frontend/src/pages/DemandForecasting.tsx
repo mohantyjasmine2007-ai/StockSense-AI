@@ -570,19 +570,46 @@ export const DemandForecasting: React.FC<DemandForecastingProps> = ({
               }
             >
               <div className="space-y-3 text-xs">
+                {/* Benchmark Comparison Table */}
                 <div className="p-3 rounded-lg bg-slate-950/60 border border-slate-800 space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-400">AI ML WMAPE Error:</span>
-                    <span className="font-mono font-bold text-teal-300">{mlWmapePct}%</span>
+                    <span className="text-teal-300 font-medium">Full ML (With Weather & Signals):</span>
+                    <span className="font-mono font-bold text-teal-300">{mlWmapePct}% WMAPE</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-400">ERP 7-Day MA WMAPE:</span>
-                    <span className="font-mono font-bold text-amber-300">{baseWmapePct}%</span>
+                    <span className="text-slate-400">Core ML (Without Signals Ablation):</span>
+                    <span className="font-mono text-slate-300">
+                      {evaluation?.ml_without_signals_wmape
+                        ? `${(evaluation.ml_without_signals_wmape * 100).toFixed(1)}% WMAPE`
+                        : '—'}
+                    </span>
                   </div>
-                  <div className="flex items-center justify-between pt-1.5 border-t border-slate-800/80">
-                    <span className="text-slate-300 font-medium">Relative Error Delta:</span>
-                    <span className={`font-mono font-bold ${mlBeats ? 'text-teal-400' : 'text-amber-400'}`}>
-                      {mlBeats ? `-${diffPct}% Error` : `+${Math.abs(Number(diffPct))}% Baseline`}
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400">ERP 7-Day Moving Average:</span>
+                    <span className="font-mono text-amber-300">{baseWmapePct}% WMAPE</span>
+                  </div>
+
+                  {evaluation?.signals_improvement_pct !== null && evaluation?.signals_improvement_pct !== undefined && (
+                    <div className="flex items-center justify-between pt-1.5 border-t border-slate-800/80">
+                      <span className="text-slate-300 font-medium">Signals Improvement Delta:</span>
+                      <span
+                        className={`font-mono font-bold ${
+                          evaluation.signals_improvement_pct > 0 ? 'text-teal-400' : 'text-slate-400'
+                        }`}
+                      >
+                        {evaluation.signals_improvement_pct > 0
+                          ? `+${evaluation.signals_improvement_pct}% Accuracy Gain`
+                          : `${evaluation.signals_improvement_pct}% (Lags Dominant)`}
+                      </span>
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between pt-1 border-t border-slate-800/80">
+                    <span className="text-slate-400 text-[11px]">Forecast Horizon Status:</span>
+                    <span className="font-mono text-[11px] text-cyan-300">
+                      {evaluation?.signals_available_at_forecast
+                        ? '⚡ Live Signals Available'
+                        : 'Core Lag Model Fallback'}
                     </span>
                   </div>
                 </div>
@@ -590,7 +617,7 @@ export const DemandForecasting: React.FC<DemandForecastingProps> = ({
                 <div className="p-3 rounded-lg bg-slate-950/40 border border-slate-800 space-y-1.5 text-[11px]">
                   <div className="flex items-center space-x-1.5 text-slate-300 font-medium">
                     <ShieldCheck className="w-3.5 h-3.5 text-teal-400" />
-                    <span>Evaluation Integrity:</span>
+                    <span>Evaluation Integrity & Ablation:</span>
                   </div>
                   <p className="text-slate-400 leading-relaxed">
                     {evaluation?.signals_impact_note}

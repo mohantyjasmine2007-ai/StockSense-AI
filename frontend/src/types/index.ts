@@ -80,12 +80,17 @@ export interface DataStatus {
 export interface SignalItem {
   date: string;
   store_id: string;
+  city?: string;
   holiday_flag: boolean;
   event_flag: boolean;
   event_name?: string;
   temperature?: number | null;
   rainfall?: number | null;
   spike_label?: string;
+  source?: string;
+  provider_status?: string;
+  retrieved_at?: string;
+  is_cached?: boolean;
 }
 
 export interface WeatherStatus {
@@ -93,7 +98,10 @@ export interface WeatherStatus {
   mode: string;
   is_live_enabled: boolean;
   is_fallback_active: boolean;
+  api_key_configured?: boolean;
+  cache_entries_count?: number;
   message: string;
+  last_retrieval_timestamp?: string;
 }
 
 export type PageId = 
@@ -136,6 +144,10 @@ export interface ModelEvaluation {
   test_samples: number;
   ml_mae: number;
   ml_wmape: number;
+  ml_without_signals_mae?: number | null;
+  ml_without_signals_wmape?: number | null;
+  signals_improvement_pct?: number | null;
+  signals_available_at_forecast?: boolean;
   baseline_mae: number;
   baseline_wmape: number;
   ml_beats_baseline: boolean;

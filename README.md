@@ -53,6 +53,40 @@ StockSense AI combines **sales history**, **current inventory**, and **external 
 
 ---
 
+## External Signals Service & Weather Provider Architecture
+
+StockSense AI features a modular, resilient external signals service ([signals_service.py](file:///c:/Users/Jasmini%20Mohanty/OneDrive/Documents/AIMPACT-1/backend/app/services/signals_service.py)) designed to ingest live environmental signals without breaking the core CSV-based pipeline or inventing fake data.
+
+### 1. Configuration & Environment Variables
+The weather provider is fully configurable via `.env` or system environment variables:
+- `WEATHER_PROVIDER`: Weather provider identifier (defaults to `open-meteo`; optionally `weatherapi` or `openweather`).
+- `WEATHER_API_KEY`: API key for commercial providers (e.g. WeatherAPI). Optional for Open-Meteo.
+- `ENABLE_LIVE_WEATHER`: Boolean (`True` by default) controlling live external HTTP calls.
+- `WEATHER_API_TIMEOUT_SECONDS`: Request timeout in seconds (default: `3.0s`) to prevent blocking forecast pipelines.
+- `WEATHER_CACHE_TTL_SECONDS`: In-memory cache time-to-live (default: `3600s`).
+
+### 2. Multi-Tier Fallback Hierarchy (Zero Fabricated Data Guarantee)
+1. **Tier 1 — In-Memory Cache**: Repeated requests for the same `(store_id, date)` hit the fast memory cache, returning immediately with `is_cached: True` to protect rate limits.
+2. **Tier 2 — Live Weather REST Adapter**: Queries Open-Meteo REST API (free, zero API key required) or WeatherAPI using latitude/longitude mapped from `stores.csv`.
+3. **Tier 3 — Verified CSV Benchmark Fallback**: If network fails, times out, or live weather is disabled, the system automatically falls back to `external_signals.csv` matching by `store_id` and `date`, tagged as `provider_status: "VERIFIED_FALLBACK"`.
+4. **Tier 4 — Unmatched Location Guardrail**: If an unknown store location is queried (e.g. `STORE_UNKNOWN`), the system marks `provider_status: "UNMATCHED"`, sets `temperature: None` and `rainfall: None`, and sets source to `"Unmatched Store Location (Unavailable)"`. **The system never substitutes invented live weather values.**
+
+### 3. Holiday Calendar & Location Mapping
+The built-in `HolidayCalendar` maps calendar dates and store municipal locations:
+- **Federal U.S. Holidays**: New Year's Day, Memorial Day, Independence Day, Labor Day, Thanksgiving, Christmas Eve/Day.
+- **Regional Washington State & Seattle-Tacoma Events**: Seafair Festival Weekend (Seattle), Bite of Seattle Food Festival, Bumbershoot Arts & Music (Seattle Center), Bellevue Arts Museum Fair (Bellevue), Lilac Bloomsday Run (Spokane).
+- Each matched holiday/event flags `holiday_flag=True` or `event_flag=True` and assigns an event name and surge classification tag.
+
+### 4. Forecasting Pipeline Integration & Controlled Dual-Model Ablation
+- External variables (`holiday_flag`, `event_flag`, `temperature`, `rainfall`) are added to the forecasting pipeline **only when they are available at forecast time** (i.e. future signal records exist for the forward horizon).
+- If future signals are absent, the multi-step autoregressive rollout gracefully uses the core lag/seasonality model (`rf_core`).
+- **Controlled Ablation Evaluation**: At training time, the pipeline trains two separate models on identical historical observations:
+  1. `rf_full`: Core features + external signals (16 features).
+  2. `rf_core`: Core lag & calendar features only (12 features).
+- Both models are evaluated head-to-head on the **identical chronological out-of-sample test slice** without data leakage. The system computes `signals_improvement_pct` ($\frac{\text{WMAPE}_{\text{core}} - \text{WMAPE}_{\text{full}}}{\text{WMAPE}_{\text{core}}} \times 100\%$) to quantify whether external signals objectively improve accuracy.
+
+---
+
 ## Data Validation Engine
 
 All CSV uploads are rigorously validated through [data_validator.py](file:///c:/Users/Jasmini%20Mohanty/OneDrive/Documents/AIMPACT-1/backend/app/services/data_validator.py) with structured, human-readable error reports:
@@ -198,8 +232,10 @@ The simulator provides a deterministic, transparent policy backtest replaying ex
 
 | Verification Check | Target Component | Result | Details |
 | :--- | :--- | :--- | :--- |
-| **Frontend Production Build** | `frontend` | **PASSED** | `tsc -b && vite build` bundled cleanly in 1.03s (0 errors, 0 warnings). |
-| **Backend Automated Tests** | `backend/tests` | **PASSED** | **37/37 pytest test cases passed** in 19.76s across validation, forecasting, rebalancing, and simulation suites. |
+| **Frontend Production Build** | `frontend` | **PASSED** | `tsc -b && vite build` bundled cleanly in 0.95s (0 errors, 0 warnings). |
+| **Backend Automated Tests** | `backend/tests` | **PASSED** | **45/45 pytest test cases passed** in 26.31s across signals, validation, forecasting, rebalancing, and simulation suites. |
+| **External Signals & Fallbacks** | `test_signals_service.py` | **PASSED** | Verified holiday calendar, live Open-Meteo adapter, missing API key fallback, unmatched location guardrails, and cache hits. |
+| **Controlled Signals Ablation** | `test_signals_service.py` | **PASSED** | Confirmed dual-model evaluation (with vs. without signals) on identical test period reporting `signals_improvement_pct`. |
 | **Simulator Metrics & Formulas** | `test_simulator.py` | **PASSED** | Verified fill rate, stockout rate, holding cost formulas, and zero-demand safety. |
 | **Dynamic Calculation (No 30% Hardcoding)** | `test_simulator.py` | **PASSED** | Confirmed stockout reductions are computed from actual replay traces and never hardcoded. |
 | **CSV Audit Export Generation** | `test_simulator.py` | **PASSED** | Verified CSV output format, headers, metadata comments, and daily trace logs. |

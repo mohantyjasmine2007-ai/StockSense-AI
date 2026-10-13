@@ -83,3 +83,45 @@
 .data-table-compact tr:hover td {
   background-color: rgba(30, 41, 59, 0.5);
 }
+
+/* Laser scanning beam for barcode widget */
+@keyframes laserScan {
+  0% {
+    top: 6%;
+    opacity: 0.8;
+  }
+  50% {
+    top: 90%;
+    opacity: 1;
+  }
+  100% {
+    top: 6%;
+    opacity: 0.8;
+  }
+}
+
+.laser-scanner-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #ef4444 25%, #fb7185 50%, #ef4444 75%, transparent);
+  box-shadow: 0 0 10px #f43f5e, 0 0 18px #ef4444;
+  animation: laserScan 2.4s ease-in-out infinite;
+}
+
+/* Neon glow frames matching Reference Image 5 */
+.neon-glow-red {
+  border: 1px solid rgba(239, 68, 68, 0.5);
+  box-shadow: 0 0 16px rgba(239, 68, 68, 0.2), inset 0 0 12px rgba(239, 68, 68, 0.1);
+}
+
+.neon-glow-amber {
+  border: 1px solid rgba(245, 158, 11, 0.5);
+  box-shadow: 0 0 16px rgba(245, 158, 11, 0.2), inset 0 0 12px rgba(245, 158, 11, 0.1);
+}
+
+.neon-glow-cyan {
+  border: 1px solid rgba(6, 182, 212, 0.5);
+  box-shadow: 0 0 16px rgba(6, 182, 212, 0.2), inset 0 0 12px rgba(6, 182, 212, 0.1);
+}

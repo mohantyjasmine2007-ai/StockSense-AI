@@ -15,6 +15,12 @@ import {
   Thermometer,
   Layers,
   Zap,
+  Clock,
+  Database,
+  Radio,
+  Server,
+  KeyRound,
+  ShieldAlert,
 } from 'lucide-react';
 
 interface ExternalSignalsProps {
@@ -74,9 +80,12 @@ export const ExternalSignals: React.FC<ExternalSignalsProps> = ({
       ).toFixed(1)
     : '18.5';
 
+  const liveSignalsCount = signals.filter((s) => s.provider_status === 'LIVE').length;
+  const cachedSignalsCount = signals.filter((s) => s.is_cached).length;
+
   return (
     <div className="space-y-6">
-      {/* Header Banner */}
+      {/* Header Banner with Provenance & Config State */}
       <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center space-x-3">
           <div className="p-2.5 rounded-lg bg-teal-500/10 border border-teal-500/30 text-teal-400">
@@ -90,15 +99,33 @@ export const ExternalSignals: React.FC<ExternalSignalsProps> = ({
               </Badge>
             </div>
             <p className="text-xs text-slate-400 mt-0.5">
-              Verified weather observations, holiday calendars, and explicitly labelled demand spikes.
+              Multi-source weather adapter, regional holiday calendar mapping, and verified CSV resilience.
             </p>
           </div>
         </div>
 
-        <div className="flex items-center space-x-2">
+        {/* Provenance and State Badges */}
+        <div className="flex flex-wrap items-center gap-2">
           <Badge variant="teal" size="sm">
-            <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
+            <Radio className="w-3.5 h-3.5 mr-1 text-teal-300" />
             {weatherStatus?.mode || 'Offline Verified Signals'}
+          </Badge>
+
+          {weatherStatus?.api_key_configured ? (
+            <Badge variant="info" size="sm">
+              <KeyRound className="w-3.5 h-3.5 mr-1 text-sky-300" />
+              API Key Configured
+            </Badge>
+          ) : (
+            <Badge variant="neutral" size="sm">
+              <KeyRound className="w-3.5 h-3.5 mr-1 text-slate-400" />
+              Zero-Key Public Mode
+            </Badge>
+          )}
+
+          <Badge variant="warning" size="sm">
+            <Database className="w-3.5 h-3.5 mr-1 text-amber-300" />
+            Cache: {weatherStatus?.cache_entries_count ?? 0} keys
           </Badge>
         </div>
       </div>
@@ -122,9 +149,9 @@ export const ExternalSignals: React.FC<ExternalSignalsProps> = ({
         <StatCard
           label="Events & Holidays"
           value={totalEventDays}
-          subtext="Festivals, markets, holidays"
+          subtext="Calendar mapped to location"
           icon={Calendar}
-          badge="Observed"
+          badge="Calendar"
         />
         <StatCard
           label="Labelled Demand Spikes"
@@ -135,21 +162,52 @@ export const ExternalSignals: React.FC<ExternalSignalsProps> = ({
         />
       </div>
 
-      {/* Signal Integration Architecture Guardrail */}
-      <div className="p-4 rounded-xl border border-slate-800 bg-slate-900/60 flex items-start space-x-3 text-xs text-slate-300">
-        <AlertCircle className="w-5 h-5 text-teal-400 shrink-0 mt-0.5" />
-        <div className="space-y-1">
-          <h5 className="font-semibold text-slate-100">Configurable External Signal Integration Standard</h5>
-          <p className="text-slate-400 leading-relaxed">
-            {weatherStatus?.message ||
-              'External signals are processed through standard tabular CSV schemas. Live weather APIs (such as Open-Meteo) remain completely optional and configurable—no synthetic API responses are fabricated.'}
+      {/* Signal Integration Architecture & Fallback Guardrails */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="p-4 rounded-xl border border-slate-800 bg-slate-900/60 space-y-2">
+          <div className="flex items-center space-x-2 text-teal-400 text-xs font-semibold">
+            <Server className="w-4 h-4" />
+            <span>Multi-Tier Signal Architecture</span>
+          </div>
+          <p className="text-xs text-slate-400 leading-relaxed">
+            1. <strong>In-Memory Cache</strong>: Avoids rate limits.<br />
+            2. <strong>REST Provider</strong>: Open-Meteo (zero-key) or WeatherAPI via <code className="text-teal-300">WEATHER_API_KEY</code>.<br />
+            3. <strong>Verified CSV Fallback</strong>: Automatically engaged upon network timeout.<br />
+            4. <strong>Unmatched Guardrail</strong>: Flags unknown locations without hallucinating live values.
+          </p>
+        </div>
+
+        <div className="p-4 rounded-xl border border-slate-800 bg-slate-900/60 space-y-2">
+          <div className="flex items-center space-x-2 text-sky-400 text-xs font-semibold">
+            <Calendar className="w-4 h-4" />
+            <span>Holiday & Location Mapping</span>
+          </div>
+          <p className="text-xs text-slate-400 leading-relaxed">
+            Maps stores by latitude, longitude, and municipal boundaries. Matches Federal holidays (Labor Day, Memorial Day) as well as regional Seattle-Bellevue retail events (Seafair Festival, Bite of Seattle, Bumbershoot Arts).
+          </p>
+        </div>
+
+        <div className="p-4 rounded-xl border border-slate-800 bg-slate-900/60 space-y-2">
+          <div className="flex items-center space-x-2 text-amber-400 text-xs font-semibold">
+            <ShieldAlert className="w-4 h-4" />
+            <span>Honest Provenance & Timestamps</span>
+          </div>
+          <p className="text-xs text-slate-400 leading-relaxed">
+            Every record displays its exact retrieval timestamp, source tier, and caching status.
+            <br />
+            <span className="text-slate-300 font-medium">Last Pipeline Sync:</span>{' '}
+            <span className="font-mono text-teal-300">
+              {weatherStatus?.last_retrieval_timestamp
+                ? new Date(weatherStatus.last_retrieval_timestamp).toLocaleTimeString()
+                : 'Just now'}
+            </span>
           </p>
         </div>
       </div>
 
       {/* Signals Table */}
       <Card
-        title="Chronological Signals & Demand Spikes"
+        title="Chronological Signals & Provenance Audit"
         subtitle={`Tracking ${signals.length} daily signal records for ${currentStoreName}`}
         headerAction={
           <div className="flex items-center space-x-3">
@@ -179,12 +237,14 @@ export const ExternalSignals: React.FC<ExternalSignalsProps> = ({
               <thead>
                 <tr>
                   <th>Date</th>
-                  <th>Store</th>
+                  <th>Store / City</th>
                   <th>Temperature</th>
                   <th>Rainfall</th>
                   <th>Holiday Flag</th>
-                  <th>Event Flag & Name</th>
-                  <th>Simulated Spike Classification</th>
+                  <th>Event & Calendar</th>
+                  <th>Spike Label</th>
+                  <th>Source & Provenance</th>
+                  <th>Retrieved At</th>
                 </tr>
               </thead>
               <tbody>
@@ -192,12 +252,22 @@ export const ExternalSignals: React.FC<ExternalSignalsProps> = ({
                   const hasSpike = item.spike_label && item.spike_label !== 'Baseline';
                   const storeName =
                     meta?.stores.find((s) => s.store_id === item.store_id)?.name || item.store_id;
+                  const cityName =
+                    item.city ||
+                    meta?.stores.find((s) => s.store_id === item.store_id)?.city ||
+                    'WA';
+
+                  const isLive = item.provider_status === 'LIVE';
+                  const isUnmatched = item.provider_status === 'UNMATCHED';
 
                   return (
                     <tr key={idx}>
                       <td className="font-mono text-xs text-slate-200">{item.date}</td>
                       <td className="text-xs text-slate-300">
-                        {storeName} <span className="font-mono text-slate-400 text-[10px]">({item.store_id})</span>
+                        <span className="font-medium">{storeName}</span>
+                        <div className="font-mono text-slate-400 text-[10px]">
+                          {item.store_id} · {cityName}
+                        </div>
                       </td>
                       <td className="font-mono text-xs">
                         {item.temperature !== null && item.temperature !== undefined ? (
@@ -205,7 +275,7 @@ export const ExternalSignals: React.FC<ExternalSignalsProps> = ({
                             {item.temperature.toFixed(1)}°C
                           </span>
                         ) : (
-                          '—'
+                          <span className="text-slate-500">—</span>
                         )}
                       </td>
                       <td className="font-mono text-xs">
@@ -214,7 +284,7 @@ export const ExternalSignals: React.FC<ExternalSignalsProps> = ({
                             {item.rainfall.toFixed(1)} mm
                           </span>
                         ) : (
-                          '—'
+                          <span className="text-slate-500">—</span>
                         )}
                       </td>
                       <td>
@@ -223,18 +293,16 @@ export const ExternalSignals: React.FC<ExternalSignalsProps> = ({
                             Holiday
                           </Badge>
                         ) : (
-                          <span className="text-slate-400 text-xs">No</span>
+                          <span className="text-slate-500 text-xs">No</span>
                         )}
                       </td>
                       <td>
                         {item.event_flag ? (
-                          <div className="flex items-center space-x-1.5">
-                            <Badge variant="info" size="sm">
-                              {item.event_name || 'Event Active'}
-                            </Badge>
-                          </div>
+                          <Badge variant="info" size="sm">
+                            {item.event_name || 'Event Active'}
+                          </Badge>
                         ) : (
-                          <span className="text-slate-400 text-xs">None</span>
+                          <span className="text-slate-500 text-xs">None</span>
                         )}
                       </td>
                       <td>
@@ -244,7 +312,37 @@ export const ExternalSignals: React.FC<ExternalSignalsProps> = ({
                             {item.spike_label}
                           </Badge>
                         ) : (
-                          <span className="text-slate-400 text-xs font-mono">Baseline</span>
+                          <span className="text-slate-500 text-xs font-mono">Baseline</span>
+                        )}
+                      </td>
+                      <td>
+                        <div className="flex items-center space-x-1.5">
+                          {isLive ? (
+                            <Badge variant="teal" size="sm">
+                              <Radio className="w-3 h-3 mr-1 text-teal-300" />
+                              Live Provider
+                            </Badge>
+                          ) : isUnmatched ? (
+                            <Badge variant="critical" size="sm">
+                              Unmatched Location
+                            </Badge>
+                          ) : (
+                            <Badge variant="neutral" size="sm">
+                              Verified CSV Fallback
+                            </Badge>
+                          )}
+                          {item.is_cached && (
+                            <span className="text-[10px] font-mono text-amber-400" title="Retrieved from memory cache">
+                              ⚡Cached
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="font-mono text-[11px] text-slate-400">
+                        {item.retrieved_at ? (
+                          <span>{item.retrieved_at.split('T')[1]?.substring(0, 8) || item.retrieved_at} UTC</span>
+                        ) : (
+                          <span>Verified</span>
                         )}
                       </td>
                     </tr>

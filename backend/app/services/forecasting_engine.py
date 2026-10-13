@@ -6,16 +6,12 @@ import numpy as np
 from sklearn.ensemble import RandomForestRegressor
 from app.services.data_service import data_service
 
-FEATURE_NAMES = [
+CORE_FEATURE_NAMES = [
     "day_of_week",
     "is_weekend",
     "month",
     "day_of_month",
     "promotion_active",
-    "holiday_flag",
-    "event_flag",
-    "temperature",
-    "rainfall",
     "lag_1",
     "lag_2",
     "lag_7",
@@ -24,6 +20,15 @@ FEATURE_NAMES = [
     "rolling_std_7",
     "rolling_mean_14",
 ]
+
+SIGNAL_FEATURE_NAMES = [
+    "holiday_flag",
+    "event_flag",
+    "temperature",
+    "rainfall",
+]
+
+FEATURE_NAMES = CORE_FEATURE_NAMES + SIGNAL_FEATURE_NAMES
 
 FEATURE_DESCRIPTIONS = {
     "day_of_week": "Day of the week seasonality (0=Mon, 6=Sun)",
@@ -229,74 +234,84 @@ class ForecastingEngine:
         train_df = clean_df.iloc[:-horizon_days].copy()
         test_df = clean_df.iloc[-horizon_days:].copy()
 
-        X_train = train_df[FEATURE_NAMES].values
         y_train = train_df["units_sold"].values
-        X_test = test_df[FEATURE_NAMES].values
         y_test = test_df["units_sold"].values
 
-        # 6. Model Training: Random Forest Regressor
-        rf = RandomForestRegressor(
+        # 6. Model Training & Ablation: Evaluate Model With and Without External Signals
+        # Model A: Full Model with external weather and holiday signals
+        X_train_full = train_df[FEATURE_NAMES].values
+        X_test_full = test_df[FEATURE_NAMES].values
+
+        rf_full = RandomForestRegressor(
             n_estimators=50,
             max_depth=5,
             min_samples_leaf=2,
             random_state=42
         )
-        rf.fit(X_train, y_train)
+        rf_full.fit(X_train_full, y_train)
 
-        # In-sample predictions and residuals for uncertainty estimation
-        y_train_pred = rf.predict(X_train)
+        # Model B: Ablation Model (Core features strictly without external weather/event signals)
+        X_train_core = train_df[CORE_FEATURE_NAMES].values
+        X_test_core = test_df[CORE_FEATURE_NAMES].values
+
+        rf_core = RandomForestRegressor(
+            n_estimators=50,
+            max_depth=5,
+            min_samples_leaf=2,
+            random_state=42
+        )
+        rf_core.fit(X_train_core, y_train)
+
+        # In-sample predictions and residuals for uncertainty estimation (from full model)
+        y_train_pred = rf_full.predict(X_train_full)
         residuals = y_train - y_train_pred
         q10_residual = float(np.percentile(residuals, 10))
         q90_residual = float(np.percentile(residuals, 90))
 
-        # Test set predictions
-        y_test_pred_ml = np.maximum(0, rf.predict(X_test))
+        # Test set predictions for both models on the IDENTICAL test period
+        y_test_pred_full = np.maximum(0, rf_full.predict(X_test_full))
+        y_test_pred_core = np.maximum(0, rf_core.predict(X_test_core))
 
-        # Baseline: 7-day Moving Average on test set
-        # For each test day, baseline is the rolling_mean_7 (average of preceding 7 days)
+        # Baseline: 7-day Moving Average on identical test set
+        # For each test day, baseline is rolling_mean_7 (average of preceding 7 days)
         y_test_pred_baseline = np.maximum(0, test_df["rolling_mean_7"].values)
 
         # Metrics calculation
-        ml_mae = cls.calculate_mae(y_test, y_test_pred_ml)
-        ml_wmape = cls.calculate_wmape(y_test, y_test_pred_ml)
+        ml_mae = cls.calculate_mae(y_test, y_test_pred_full)
+        ml_wmape = cls.calculate_wmape(y_test, y_test_pred_full)
+        ml_no_sig_mae = cls.calculate_mae(y_test, y_test_pred_core)
+        ml_no_sig_wmape = cls.calculate_wmape(y_test, y_test_pred_core)
         base_mae = cls.calculate_mae(y_test, y_test_pred_baseline)
         base_wmape = cls.calculate_wmape(y_test, y_test_pred_baseline)
+
+        # Quantitative evaluation of external signals impact on same test period
+        signals_imp_pct: Optional[float] = None
+        if ml_no_sig_wmape > 0:
+            signals_imp_pct = round(((ml_no_sig_wmape - ml_wmape) / ml_no_sig_wmape) * 100.0, 1)
 
         ml_beats_baseline = bool(ml_wmape < base_wmape)
         diff_pct = ((base_wmape - ml_wmape) / max(0.001, base_wmape)) * 100.0
 
-        if ml_beats_baseline:
-            signals_impact_note = f"ML model reduced forecast error by {diff_pct:.1f}% (WMAPE {ml_wmape:.1%} vs {base_wmape:.1%}) relative to moving average on chronological test slice."
+        if signals_imp_pct is not None and signals_imp_pct > 0:
+            signals_impact_note = (
+                f"External weather/holiday signals reduced test WMAPE by +{signals_imp_pct:.1f}% "
+                f"({ml_wmape:.1%} with signals vs {ml_no_sig_wmape:.1%} without signals on identical chronological test slice)."
+            )
+        elif signals_imp_pct is not None and signals_imp_pct < 0:
+            signals_impact_note = (
+                f"External signals showed no error reduction ({signals_imp_pct:.1f}% delta vs {ml_no_sig_wmape:.1%} core model); "
+                f"baseline lag & seasonality dominated."
+            )
         else:
-            signals_impact_note = f"Moving average baseline was competitive (WMAPE {base_wmape:.1%} vs {ml_wmape:.1%}) during this test interval. External signals did not demonstrate a measurable accuracy improvement on this test slice."
+            signals_impact_note = (
+                f"ML model achieved WMAPE {ml_wmape:.1%} vs Moving Average {base_wmape:.1%} "
+                f"({diff_pct:.1f}% error reduction relative to baseline)."
+            )
 
         test_start_str = test_df["date"].iloc[0].strftime("%Y-%m-%d")
         test_end_str = test_df["date"].iloc[-1].strftime("%Y-%m-%d")
 
-        evaluation = {
-            "test_start_date": test_start_str,
-            "test_end_date": test_end_str,
-            "test_samples": len(y_test),
-            "ml_mae": round(ml_mae, 2),
-            "ml_wmape": round(ml_wmape, 4),
-            "baseline_mae": round(base_mae, 2),
-            "baseline_wmape": round(base_wmape, 4),
-            "ml_beats_baseline": ml_beats_baseline,
-            "signals_impact_note": signals_impact_note,
-            "uncertainty_method": "Empirical residual quantile estimation (P10 to P90 bounds scaled by horizon step sqrt(1 + 0.04*k)) derived from chronological training residuals. Note: Decision-support model, not certified as production-ready."
-        }
-
-        # Feature importances
-        raw_importances = rf.feature_importances_
-        feature_importances = []
-        for feat, imp in sorted(zip(FEATURE_NAMES, raw_importances), key=lambda x: x[1], reverse=True)[:8]:
-            feature_importances.append({
-                "feature": feat,
-                "importance": round(float(imp), 4),
-                "description": FEATURE_DESCRIPTIONS.get(feat, feat)
-            })
-
-        # 7. Generate Out-of-Sample Future Forecast (Next horizon_days days)
+        # 7. Check if external variables are available at forecast time
         last_date = daily["date"].max()
         future_dates = [last_date + timedelta(days=i) for i in range(1, horizon_days + 1)]
 
@@ -315,7 +330,40 @@ class ForecastingEngine:
                     "spike_label": str(srow.get("spike_label", "Baseline"))
                 }
 
+        # Signals are available at forecast time if future dates have signal entries
+        future_matches = sum(1 for fd in future_dates if fd.strftime("%Y-%m-%d") in future_signals)
+        signals_available_at_forecast = future_matches > 0
+
+        evaluation = {
+            "test_start_date": test_start_str,
+            "test_end_date": test_end_str,
+            "test_samples": len(y_test),
+            "ml_mae": round(ml_mae, 2),
+            "ml_wmape": round(ml_wmape, 4),
+            "ml_without_signals_mae": round(ml_no_sig_mae, 2),
+            "ml_without_signals_wmape": round(ml_no_sig_wmape, 4),
+            "signals_improvement_pct": signals_imp_pct,
+            "signals_available_at_forecast": signals_available_at_forecast,
+            "baseline_mae": round(base_mae, 2),
+            "baseline_wmape": round(base_wmape, 4),
+            "ml_beats_baseline": ml_beats_baseline,
+            "signals_impact_note": signals_impact_note,
+            "uncertainty_method": "Empirical residual quantile estimation (P10 to P90 bounds scaled by horizon step sqrt(1 + 0.04*k)) derived from chronological training residuals. Note: Decision-support model, not certified as production-ready."
+        }
+
+        # Feature importances (reported from the full model)
+        raw_importances = rf_full.feature_importances_
+        feature_importances = []
+        for feat, imp in sorted(zip(FEATURE_NAMES, raw_importances), key=lambda x: x[1], reverse=True)[:8]:
+            feature_importances.append({
+                "feature": feat,
+                "importance": round(float(imp), 4),
+                "description": FEATURE_DESCRIPTIONS.get(feat, feat)
+            })
+
         # Multi-step autoregressive rollout
+        # Select model based on whether external variables are available at forecast time!
+        active_rf = rf_full if signals_available_at_forecast else rf_core
         recent_sales = list(daily["units_sold"].values)
         forecast_points = []
 
@@ -345,26 +393,42 @@ class ForecastingEngine:
             r_std7 = float(np.std(recent_sales[-7:])) if len(recent_sales) >= 7 else 0.0
             r_mean14 = float(np.mean(recent_sales[-14:])) if len(recent_sales) >= 14 else r_mean7
 
-            x_future = np.array([[
-                dow,
-                is_wknd,
-                month,
-                dom,
-                promo,
-                sig_data["holiday_flag"],
-                sig_data["event_flag"],
-                sig_data["temperature"],
-                sig_data["rainfall"],
-                lag1,
-                lag2,
-                lag7,
-                lag14,
-                r_mean7,
-                r_std7,
-                r_mean14
-            ]])
+            if signals_available_at_forecast:
+                x_future = np.array([[
+                    dow,
+                    is_wknd,
+                    month,
+                    dom,
+                    promo,
+                    lag1,
+                    lag2,
+                    lag7,
+                    lag14,
+                    r_mean7,
+                    r_std7,
+                    r_mean14,
+                    sig_data["holiday_flag"],
+                    sig_data["event_flag"],
+                    sig_data["temperature"],
+                    sig_data["rainfall"],
+                ]])
+            else:
+                x_future = np.array([[
+                    dow,
+                    is_wknd,
+                    month,
+                    dom,
+                    promo,
+                    lag1,
+                    lag2,
+                    lag7,
+                    lag14,
+                    r_mean7,
+                    r_std7,
+                    r_mean14,
+                ]])
 
-            pred_val = float(np.maximum(0, rf.predict(x_future)[0]))
+            pred_val = float(np.maximum(0, active_rf.predict(x_future)[0]))
             base_val = round(r_mean7, 1)
 
             # Uncertainty bounds with horizon scaling
