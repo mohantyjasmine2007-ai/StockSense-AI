@@ -1,0 +1,6 @@
+store_id,name,city,latitude,longitude,max_capacity,holding_cost_multiplier
+STORE_01,Downtown Express,Seattle,47.6062,-122.3321,5000,1.25
+STORE_02,Suburban Supercenter,Bellevue,47.6101,-122.2015,18000,1.0
+STORE_03,Westside Metro,Tacoma,47.2529,-122.4443,12000,0.95
+STORE_04,University Hub,Seattle,47.6553,-122.3035,8000,1.1
+STORE_05,Northgate Center,Shoreline,47.756,-122.3456,10000,1.05

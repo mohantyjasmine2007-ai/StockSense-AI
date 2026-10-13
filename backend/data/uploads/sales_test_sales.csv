@@ -1,0 +1,3 @@
+date,store_id,product_id,units_sold,unit_price,promotion_active
+2026-05-01,STORE_01,PROD_01,15,4.5,True
+2026-05-01,STORE_01,PROD_02,22,3.8,False

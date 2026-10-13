@@ -1,0 +1,13 @@
+product_id,name,category,unit_cost,selling_price,holding_cost_per_day,lead_time_days,min_order_qty
+PROD_01,Organic Whole Milk 1 Gal,Dairy & Fresh,2.2,4.5,0.08,2,50
+PROD_02,Artisan Sourdough Bread,Bakery & Fresh,1.4,3.8,0.06,1,40
+PROD_03,Greek Yogurt Plain 32oz,Dairy & Fresh,2.5,5.2,0.07,3,30
+PROD_04,Cold Brew Coffee 32oz,Beverages,2.8,5.99,0.05,2,40
+PROD_05,Spiced Chai Concentrate 32oz,Beverages,2.1,4.89,0.04,3,30
+PROD_06,Sparkling Mineral Water 12pk,Beverages,3.2,6.99,0.04,4,50
+PROD_07,Hearty Lentil Soup 18oz,Pantry & Soups,1.3,3.19,0.02,3,60
+PROD_08,Organic Tomato Basil Soup 24oz,Pantry & Soups,1.8,4.29,0.03,3,50
+PROD_09,Avocado Hass 4-Pack,Produce & Fresh,1.9,3.99,0.09,2,40
+PROD_10,Compact Storm Umbrella,Seasonal & Essentials,4.5,14.99,0.03,5,25
+PROD_11,Hot Cocoa Mix Deluxe,Seasonal & Essentials,2.3,5.49,0.02,4,35
+PROD_12,Energy Protein Bar Box,Pantry & Snacks,8.5,16.99,0.05,3,20
