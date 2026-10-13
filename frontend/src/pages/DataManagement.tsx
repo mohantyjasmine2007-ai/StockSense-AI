@@ -5,20 +5,16 @@ import { Card } from '../components/common/Card';
 import { Badge } from '../components/common/Badge';
 import { StatCard } from '../components/common/StatCard';
 import { LoadingState } from '../components/common/LoadingState';
-import { ErrorState } from '../components/common/ErrorState';
 import {
   Database,
   UploadCloud,
   RotateCcw,
-  FileText,
   CheckCircle2,
   AlertTriangle,
   Layers,
   Calendar,
   Filter,
-  Check,
   X,
-  Info,
   ShieldCheck,
 } from 'lucide-react';
 

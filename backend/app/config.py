@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from typing import Optional
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -14,8 +15,12 @@ class Settings(BaseSettings):
     demo_data_dir: Path = BASE_DIR / "data" / "demo"
     upload_data_dir: Path = BASE_DIR / "data" / "uploads"
     
-    weather_api_provider: str = "open-meteo"
+    # Weather & External Signals Configuration
+    weather_api_provider: str = "open-meteo" # "open-meteo", "weatherapi", "custom"
+    weather_api_key: Optional[str] = None # Configurable via WEATHER_API_KEY env var
     enable_live_weather: bool = True
+    weather_api_timeout_seconds: float = 3.0
+    weather_cache_ttl_seconds: int = 3600
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

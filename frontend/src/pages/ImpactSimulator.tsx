@@ -89,7 +89,12 @@ export const ImpactSimulator: React.FC<ImpactSimulatorProps> = ({
       product_id: productScope,
       eval_days: evalDays,
     });
-    window.open(url, '_blank');
+    const a = document.createElement('a');
+    a.href = url;
+    a.setAttribute('download', `stocksense_simulation_${storeScope}_${evalDays}d.csv`);
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   };
 
   // Group traces by date for chart visualization (summing or averaging if multiple SKUs)
@@ -463,7 +468,7 @@ export const ImpactSimulator: React.FC<ImpactSimulatorProps> = ({
                         color: '#f8fafc',
                       }}
                     />
-                    <ReferenceLine y={0} stroke="#ef4444" strokeDasharray="3 3" label="Stockout Floor" />
+                    <ReferenceLine y={0} stroke="#ef4444" strokeDasharray="3 3" label={{ value: 'Stockout Floor (0)', fill: '#ef4444', fontSize: 10, position: 'top' }} />
                     <Bar dataKey="demand" name="Daily Demand" fill="#334155" opacity={0.6} />
                     <Line
                       type="monotone"

@@ -72,19 +72,27 @@ class DataStatusResponse(BaseModel):
 class SignalItem(BaseModel):
     date: str
     store_id: str
-    holiday_flag: bool
-    event_flag: bool
+    city: Optional[str] = None
+    holiday_flag: bool = False
+    event_flag: bool = False
     event_name: Optional[str] = "None"
     temperature: Optional[float] = None
     rainfall: Optional[float] = None
     spike_label: Optional[str] = "Baseline"
+    source: Optional[str] = "CSV Benchmark Dataset"
+    provider_status: Optional[str] = "VERIFIED_FALLBACK"
+    retrieved_at: Optional[str] = None
+    is_cached: bool = False
 
 class WeatherStatusResponse(BaseModel):
     provider: str
     mode: str
     is_live_enabled: bool
     is_fallback_active: bool
+    api_key_configured: bool = False
+    cache_entries_count: int = 0
     message: str
+    last_retrieval_timestamp: Optional[str] = None
 
 # Forecasting Models
 class ForecastDataPoint(BaseModel):
@@ -108,6 +116,10 @@ class ModelEvaluationModel(BaseModel):
     test_samples: int
     ml_mae: float
     ml_wmape: float
+    ml_without_signals_mae: Optional[float] = None
+    ml_without_signals_wmape: Optional[float] = None
+    signals_improvement_pct: Optional[float] = None
+    signals_available_at_forecast: bool = True
     baseline_mae: float
     baseline_wmape: float
     ml_beats_baseline: bool

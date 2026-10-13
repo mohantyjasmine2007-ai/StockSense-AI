@@ -80,12 +80,15 @@ Open a PowerShell terminal in the repository root:
 # 1. Install backend dependencies
 python -m pip install -r backend/requirements.txt
 
-# 2. Run automated backend test suite (15 unit tests)
-python -m pytest backend/tests
+# 2. Run automated backend test suite (37 unit tests)
+cd backend
+python -m pytest
+cd ..
 
 # 3. Start the FastAPI backend server
 cd backend
 python -m uvicorn app.main:app --reload --port 8000
+cd ..
 ```
 
 - API Base URL: `http://127.0.0.1:8000`
@@ -212,4 +215,65 @@ The simulator provides a deterministic, transparent policy backtest replaying ex
 3. **Inventory Risk & Re-balancing (`/rebalance`)**: Detect time-to-shortage ($TTS$), safety stock thresholds, and multi-store transfer routes protected by the donor surplus rule.
 4. **Action Approvals (`/actions`)**: Review and approve or decline pending transfer and reorder actions with transparent quantitative evidence and audit tracking.
 5. **Impact Simulator (`/simulator`)**: Select a historical evaluation window (14, 30, 60 days) and store/product scope, replay daily demand side-by-side, view the interactive inventory trajectory curve, compare head-to-head metrics, and export the audit CSV!
+
+---
+
+## API Endpoints Reference
+
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `GET` | `/api/health` | System health check and ingested record counts. |
+| `GET` | `/api/meta` | System catalog (stores, products, categories, date ranges). |
+| `GET` | `/api/data/status` | Dataset row counts, min/max dates, and last validation report. |
+| `GET` | `/api/data/preview/{dataset_type}` | Filtered preview of ingested tables (sales, inventory, signals). |
+| `POST` | `/api/data/upload/{dataset_type}` | Multi-rule CSV validator and dataset updater. |
+| `POST` | `/api/data/reset-demo` | Resets all tables to calibrated retail benchmark scenario. |
+| `GET` | `/api/signals/list` | Weather and calendar event signals with spike tags. |
+| `GET` | `/api/signals/weather-status` | Open-Meteo live status and offline fallback indicator. |
+| `GET` | `/api/forecast/predict` | 7/14-day ML demand forecasts, $P_{10}\text{–}P_{90}$ uncertainty bounds, and MA baseline comparison. |
+| `GET` | `/api/forecast/evaluation-summary` | Network out-of-sample WMAPE and MAE backtest evaluation. |
+| `GET` | `/api/inventory/status` | Multi-store inventory trajectories, time to shortage ($TTS$), dynamic safety stock, and risk classifications. |
+| `GET` | `/api/inventory/store/{store_id}` | Store-level stock, surplus, and deficit status. |
+| `GET` | `/api/rebalance/recommendations` | Cross-store transfer and supplier replenishment recommendations with quantitative evidence. |
+| `POST` | `/api/rebalance/actions/{id}/approve` | Persistently approve a staged rebalance or reorder action. |
+| `POST` | `/api/rebalance/actions/{id}/reject` | Persistently decline an action with human rationale logging. |
+| `POST` | `/api/rebalance/actions/reset` | Resets action approval queue states. |
+| `GET` | `/api/dashboard/summary` | Live calculations for the 7 core executive metrics with empty state guards. |
+| `POST` | `/api/simulator/run` | Replays daily demand under Traditional ERP Baseline vs StockSense AI. |
+| `GET` | `/api/simulator/export/csv` | Streams downloadable CSV audit log containing daily simulation traces. |
+
+---
+
+## Known Assumptions & Limitations
+
+1. **Human Authorization Staging**: Approved transfers and reorders stage operational authorizations within the decision store (`backend/data/actions_store.json`). Physical fulfillment requires an external adapter to the enterprise warehouse management system (WMS).
+2. **Deterministic Backtest Replay**: The impact simulator assumes unfulfilled daily customer demand is lost (no backorders), consistent with high-velocity grocery and convenience retail dynamics.
+3. **Regional Transit Constraints**: Inter-store transfers are modeled with a 1-day transit lead time between stores in the regional network. Longer cross-country distances require configurable transit tables.
+4. **Zero Fabrication Policy**: The system never hardcodes a fixed 30% reduction. When evaluated on steady-state SKUs with no weather shocks, the AI and baseline policies may perform equivalently; the simulator reports exact realized metrics.
+
+---
+
+## 5-Minute Hackathon Demonstration Script
+
+### Minute 1: The Problem & The Executive Dashboard
+- **Action**: Open `http://localhost:5173/` (Executive Dashboard).
+- **Pitch**: *"Traditional retail ERP systems rely on static 7-day moving averages, rigid safety stock multipliers, and isolated store silos. When an unexpected storm or campus event strikes, stores run out of inventory while a neighboring store 8 miles away sits on excess stock. StockSense AI connects demand forecasting, hyper-local external signals, dynamic safety stocks, and cross-store rebalancing into a single verified system."*
+- **Highlight**: Point out the 7 live KPIs—Total Stock Value, Stores/Products at Risk, Horizon Forecast Demand, Stockout Risk Rate, Customer Fill Rate, Holding-Cost Estimate, and Forecast Error vs Baseline.
+
+### Minute 2: Ingested Data & External Market Signals
+- **Action**: Navigate to **Data Management** (`/data-settings`) and **External Signals** (`/signals`).
+- **Pitch**: *"Our multi-rule CSV validation engine validates schema columns, non-negative quantities, positive unit costs, composite uniqueness, and referential integrity. In the Signals tab, we ingest hyper-local weather and calendar events. Notice how a simulated rainstorm warning creates an explicit demand shock tag that informs the downstream forecasting engine."*
+
+### Minute 3: Signal-Aware Demand Forecasting
+- **Action**: Navigate to **Demand Forecasting** (`/forecasting`). Select `Downtown Express` and `Compact Storm Umbrella` (or `Hearty Lentil Soup`).
+- **Pitch**: *"Here we compare our Scikit-Learn Random Forest model against the traditional 7-day Moving Average baseline on the exact same chronological out-of-sample test slice without future data leakage. Notice the empirical P10–P90 quantile uncertainty cone and the out-of-sample WMAPE backtest—achieving a ~47% error reduction over traditional ERP baselines during demand shocks."*
+
+### Minute 4: Stockout Risk Solver & Human Authorization
+- **Action**: Navigate to **Stockout Risk & Re-balancing** (`/rebalance`), then open **Recommended Actions** (`/actions`).
+- **Pitch**: *"Rather than immediately firing costly emergency supplier POs with 5-day lead times, StockSense AI checks the regional network for genuine surplus. Notice the Bellevue Supercenter has excess umbrellas beyond its own protected 7-day demand buffer. The engine recommends a 1-day transfer. In the Actions workflow, the inventory manager reviews the quantitative evidence drawer and clicks 'Approve' to stage the authorization."*
+
+### Minute 5: The Policy Impact Simulator & Audit Export
+- **Action**: Navigate to **Impact Simulator** (`/simulator`).
+- **Pitch**: *"How do we prove this works without faking the numbers? The simulator replays the identical chronological historical daily demand under Traditional ERP Rules versus StockSense AI. We track stockouts, unmet lost sales, fill rate, and holding costs. We never hardcode 30%—the system calculates the exact realized reduction dynamically. Finally, with one click on 'Export CSV', auditors can download the entire daily trace for verification."*
+
 
