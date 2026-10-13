@@ -69,7 +69,13 @@ export function App() {
       case 'forecasting':
         return <DemandForecasting filterState={filterState} meta={meta} />;
       case 'rebalance':
-        return <InventoryRebalancing filterState={filterState} meta={meta} />;
+        return (
+          <InventoryRebalancing
+            filterState={filterState}
+            meta={meta}
+            onNavigateToActions={() => setCurrentPage('actions')}
+          />
+        );
       case 'signals':
         return <ExternalSignals filterState={filterState} meta={meta} />;
       case 'actions':

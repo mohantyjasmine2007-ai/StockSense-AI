@@ -6,6 +6,8 @@ from app.api.data_routes import router as data_router
 from app.api.signals_routes import router as signals_router
 from app.api.forecast_routes import router as forecast_router
 from app.api.rebalance_routes import router as rebalance_router
+from app.api.dashboard_routes import router as dashboard_router
+from app.api.simulation_routes import router as simulation_router
 
 app = FastAPI(
     title=settings.app_name,
@@ -30,6 +32,9 @@ app.include_router(data_router, prefix="/api")
 app.include_router(signals_router, prefix="/api")
 app.include_router(forecast_router, prefix="/api")
 app.include_router(rebalance_router, prefix="/api")
+app.include_router(dashboard_router, prefix="/api")
+app.include_router(simulation_router, prefix="/api")
+
 
 @app.get("/")
 def root():

@@ -108,6 +108,7 @@ def test_short_history_fallback(monkeypatch):
 
     orig_sales = data_service.sales_df
     try:
+        ForecastingEngine.clear_cache()
         data_service.sales_df = short_df
         res = ForecastingEngine.generate_forecast("TEST_STORE", "TEST_PROD", horizon_days=7)
         assert res["diagnostics"]["status"] == "INSUFFICIENT_HISTORY"
@@ -115,6 +116,7 @@ def test_short_history_fallback(monkeypatch):
         assert res["forecast_points"][0]["predicted_demand"] > 0
     finally:
         data_service.sales_df = orig_sales
+        ForecastingEngine.clear_cache()
 
 def test_missing_signals_imputation(monkeypatch):
     """Tests that forecasting completes cleanly with imputed defaults if external signals are absent."""
@@ -122,9 +124,11 @@ def test_missing_signals_imputation(monkeypatch):
 
     orig_signals = data_service.signals_df
     try:
+        ForecastingEngine.clear_cache()
         data_service.signals_df = None
         res = ForecastingEngine.generate_forecast("STORE_01", "PROD_01", horizon_days=7)
         assert res["diagnostics"]["missing_signals_imputed"] is True
         assert len(res["forecast_points"]) == 7
     finally:
         data_service.signals_df = orig_signals
+        ForecastingEngine.clear_cache()

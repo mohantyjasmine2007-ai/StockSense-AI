@@ -249,3 +249,99 @@ class ActionUpdateResponse(BaseModel):
     action_id: str
     updated_status: str
     message: str
+
+# Phase 5 Dashboard & Simulator Models
+class DashboardSummaryResponse(BaseModel):
+    is_available: bool = True
+    empty_state_reason: Optional[str] = None
+    total_stock_value: float = 0.0
+    total_inventory_units: int = 0
+    products_at_risk_count: int = 0
+    stores_at_risk_count: int = 0
+    critical_shortages_count: int = 0
+    high_risk_count: int = 0
+    total_positions_monitored: int = 0
+    forecast_demand_units: float = 0.0
+    horizon_days: int = 7
+    average_daily_demand: float = 0.0
+    stockout_rate_pct: float = 0.0
+    fill_rate_pct: float = 100.0
+    holding_cost_estimate: float = 0.0
+    annualized_holding_cost: float = 0.0
+    ml_wmape: Optional[float] = None
+    baseline_wmape: Optional[float] = None
+    wmape_improvement_pct: Optional[float] = None
+    ml_beats_baseline: Optional[bool] = None
+    applied_store_id: str = "ALL"
+    applied_category: str = "ALL"
+    applied_product_id: str = "ALL"
+    active_dataset: str = "calibrated_benchmark"
+
+class SimulatorRunRequest(BaseModel):
+    store_id: str = "ALL"
+    product_id: str = "ALL"
+    eval_days: int = 30
+    initial_stock_mode: str = "snapshot"
+
+class PolicyMetricsModel(BaseModel):
+    policy_name: str
+    policy_description: str
+    stockout_incidents: int
+    unmet_demand_units: float
+    fulfilled_demand_units: float
+    total_demand_units: float
+    fill_rate_pct: float
+    stockout_rate_pct: float
+    average_inventory: float
+    total_holding_cost: float
+    orders_placed_count: int
+    transfers_executed_count: int = 0
+    units_transferred: int = 0
+
+class ComparisonDeltasModel(BaseModel):
+    stockout_incidents_diff: int
+    stockout_reduction_pct: Optional[float] = None
+    unmet_demand_diff: float
+    unmet_demand_reduction_pct: Optional[float] = None
+    fill_rate_diff_pct: float
+    average_inventory_diff: float
+    holding_cost_diff: float
+    holding_cost_change_pct: Optional[float] = None
+    net_procurement_savings: float = 0.0
+    ai_outperforms: bool = True
+
+class DailySimulationTrace(BaseModel):
+    date: str
+    store_id: str
+    product_id: str
+    daily_demand: float
+    baseline_stock: float
+    baseline_fulfilled: float
+    baseline_unmet: float
+    baseline_stockout: bool
+    ai_stock: float
+    ai_fulfilled: float
+    ai_unmet: float
+    ai_stockout: bool
+    ai_transfer_in: int
+    baseline_holding_cost: float
+    ai_holding_cost: float
+
+class SimulationResponse(BaseModel):
+    simulation_id: str
+    start_date: str
+    end_date: str
+    evaluation_days: int
+    store_id: str
+    product_id: str
+    stores_evaluated_count: int
+    products_evaluated_count: int
+    total_days_evaluated: int
+    baseline_policy: PolicyMetricsModel
+    ai_policy: PolicyMetricsModel
+    deltas: ComparisonDeltasModel
+    daily_traces: List[DailySimulationTrace]
+    assumptions: List[str]
+    disclaimer: str
+    generated_at: str
+

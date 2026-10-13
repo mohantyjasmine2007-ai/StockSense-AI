@@ -8,6 +8,12 @@ import {
   WeatherStatus,
   ForecastResponse,
   ForecastSummaryResponse,
+  InventorySummaryResponse,
+  InventoryItemStatus,
+  RebalanceRecommendationsResponse,
+  ActionUpdateResponse,
+  DashboardSummaryResponse,
+  SimulationResponse,
 } from '../types';
 
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://127.0.0.1:8000/api';
@@ -155,4 +161,95 @@ export const api = {
     const qs = query.toString() ? `?${query.toString()}` : '';
     return request<ForecastSummaryResponse>(`/forecast/evaluation-summary${qs}`);
   },
+
+  // Phase 4: Inventory & Re-balancing Endpoints
+  getInventoryStatus: (forceRefresh: boolean = false): Promise<InventorySummaryResponse> => {
+    const qs = forceRefresh ? '?force_refresh=true' : '';
+    return request<InventorySummaryResponse>(`/inventory/status${qs}`);
+  },
+
+  getStoreInventory: (storeId: string): Promise<InventoryItemStatus[]> => {
+    return request<InventoryItemStatus[]>(`/inventory/store/${storeId}`);
+  },
+
+  getRebalanceRecommendations: (params?: {
+    status?: string;
+    action_type?: string;
+    store_id?: string;
+    product_id?: string;
+  }): Promise<RebalanceRecommendationsResponse> => {
+    const query = new URLSearchParams();
+    if (params?.status && params.status !== 'all') query.set('status', params.status);
+    if (params?.action_type && params.action_type !== 'all') query.set('action_type', params.action_type);
+    if (params?.store_id && params.store_id !== 'ALL') query.set('store_id', params.store_id);
+    if (params?.product_id && params.product_id !== 'ALL') query.set('product_id', params.product_id);
+    const qs = query.toString() ? `?${query.toString()}` : '';
+    return request<RebalanceRecommendationsResponse>(`/rebalance/recommendations${qs}`);
+  },
+
+  approveAction: (actionId: string, notes?: string): Promise<ActionUpdateResponse> => {
+    return request<ActionUpdateResponse>(`/rebalance/actions/${actionId}/approve`, {
+      method: 'POST',
+      body: JSON.stringify({ notes }),
+    });
+  },
+
+  rejectAction: (actionId: string, reason?: string): Promise<ActionUpdateResponse> => {
+    return request<ActionUpdateResponse>(`/rebalance/actions/${actionId}/reject`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    });
+  },
+
+  resetActions: (): Promise<ActionUpdateResponse> => {
+    return request<ActionUpdateResponse>('/rebalance/actions/reset', {
+      method: 'POST',
+    });
+  },
+
+  // Phase 5: Executive Dashboard Summary & Impact Simulator
+  getDashboardSummary: (params?: {
+    store_id?: string;
+    category?: string;
+    product_id?: string;
+    horizon_days?: number;
+  }): Promise<DashboardSummaryResponse> => {
+    const query = new URLSearchParams();
+    if (params?.store_id && params.store_id !== 'ALL') query.set('store_id', params.store_id);
+    if (params?.category && params.category !== 'ALL') query.set('category', params.category);
+    if (params?.product_id && params.product_id !== 'ALL') query.set('product_id', params.product_id);
+    if (params?.horizon_days) query.set('horizon_days', params.horizon_days.toString());
+    const qs = query.toString() ? `?${query.toString()}` : '';
+    return request<DashboardSummaryResponse>(`/dashboard/summary${qs}`);
+  },
+
+  runSimulation: (params: {
+    store_id?: string;
+    product_id?: string;
+    eval_days?: number;
+    initial_stock_mode?: string;
+  }): Promise<SimulationResponse> => {
+    return request<SimulationResponse>('/simulator/run', {
+      method: 'POST',
+      body: JSON.stringify({
+        store_id: params.store_id || 'ALL',
+        product_id: params.product_id || 'ALL',
+        eval_days: params.eval_days || 30,
+        initial_stock_mode: params.initial_stock_mode || 'snapshot',
+      }),
+    });
+  },
+
+  getSimulationExportCsvUrl: (params: {
+    store_id?: string;
+    product_id?: string;
+    eval_days?: number;
+  }): string => {
+    const query = new URLSearchParams();
+    if (params.store_id) query.set('store_id', params.store_id);
+    if (params.product_id) query.set('product_id', params.product_id);
+    if (params.eval_days) query.set('eval_days', params.eval_days.toString());
+    return `${API_BASE}/simulator/export/csv?${query.toString()}`;
+  },
 };
+
