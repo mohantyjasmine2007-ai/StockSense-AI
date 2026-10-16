@@ -10,6 +10,7 @@ sys.path.insert(0, str(backend_dir))
 
 from app.main import app
 from app.services.signals_service import HolidayCalendar, SignalsService, signals_service
+from app.services.data_service import data_service
 from app.services.forecasting_engine import ForecastingEngine
 from app.config import settings
 
@@ -56,13 +57,16 @@ def test_store_coordinate_matching_and_csv_fallback():
     """Verify store location coordinates are matched and CSV benchmark fallback works."""
     srv = SignalsService()
     # Test date present in CSV benchmark dataset
-    sig = srv.get_signal(store_id="STORE_01", date_str="2026-07-16", allow_live=False)
+    sample_row = data_service.signals_df[data_service.signals_df["store_id"] == "STORE_01"].iloc[0]
+    test_date = sample_row["date"]
+    expected_temp = float(sample_row["temperature"])
+    sig = srv.get_signal(store_id="STORE_01", date_str=test_date, allow_live=False)
     
     assert sig.store_id == "STORE_01"
     assert sig.city == "Seattle"
     assert sig.provider_status == "VERIFIED_FALLBACK"
     assert "CSV Benchmark Dataset" in sig.source
-    assert sig.temperature == 18.0
+    assert sig.temperature == expected_temp
     assert sig.retrieved_at is not None
 
 def test_caching_behavior():
@@ -71,11 +75,14 @@ def test_caching_behavior():
     srv.clear_cache()
     assert len(srv._cache) == 0
 
-    first = srv.get_signal(store_id="STORE_01", date_str="2026-07-16", allow_live=False)
+    sample_row = data_service.signals_df[data_service.signals_df["store_id"] == "STORE_01"].iloc[0]
+    test_date = sample_row["date"]
+
+    first = srv.get_signal(store_id="STORE_01", date_str=test_date, allow_live=False)
     assert first.is_cached is False
     assert len(srv._cache) == 1
 
-    second = srv.get_signal(store_id="STORE_01", date_str="2026-07-16", allow_live=False)
+    second = srv.get_signal(store_id="STORE_01", date_str=test_date, allow_live=False)
     assert second.is_cached is True
     assert second.temperature == first.temperature
     assert second.rainfall == first.rainfall
@@ -94,11 +101,14 @@ def test_missing_api_key_graceful_handling():
 def test_api_failure_fallback_without_hallucinated_values():
     """Verify that if live provider raises an exception or times out, fallback dataset is used."""
     srv = SignalsService()
+    sample_row = data_service.signals_df[data_service.signals_df["store_id"] == "STORE_02"].iloc[0]
+    test_date = sample_row["date"]
+    expected_temp = float(sample_row["temperature"])
     with patch.object(srv._open_meteo, "fetch_weather", return_value=None):
-        sig = srv.get_signal(store_id="STORE_02", date_str="2026-07-16", allow_live=True)
+        sig = srv.get_signal(store_id="STORE_02", date_str=test_date, allow_live=True)
         # Should gracefully fall back to CSV benchmark dataset without crash
         assert sig.provider_status == "VERIFIED_FALLBACK"
-        assert sig.temperature == 21.2
+        assert sig.temperature == expected_temp
 
 def test_signals_ablation_evaluation_in_forecasting():
     """Verify forecasting engine reports model evaluation with and without external signals on identical test period."""
